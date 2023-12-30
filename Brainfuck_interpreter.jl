@@ -21,7 +21,7 @@ begin
 end
 
 # ╔═╡ ee5f0ea0-796c-11ee-0752-ab40680845bb
-md"""# Este es un simple intérprete de BK para jugar
+md"""# Este es un intérprete de BK para jugar y también un compilador optimizador
 - ">" Incrementa el puntero.
 - "<"	Decrementa el puntero.
 - "+"	Incrementa el byte apuntado.
@@ -242,7 +242,7 @@ $texto2"
 end
 
 # ╔═╡ e3d2ef58-69dd-4c07-8881-765992f683e3
-md"Ahí va el intérprete ;)"
+md"# Ahí va el intérprete ;)"
 
 # ╔═╡ 4894c2fb-80b6-4728-9d9f-8ca1088ae53f
 #todo comprobar entradas, rangos, etc...
@@ -341,7 +341,7 @@ end
 
 # ╔═╡ 23bd9b5f-f466-47bd-92e8-4650601cb07e
 begin
-	programa=COMPILADOR_KATIE
+	programa=IMPRIMIR_TEXTO("Hola")
 	entrada="+++" * COPIAR(destino=1, temporal=5)
 	salida,historia,error=interprete(programa,entrada)
 	salida
@@ -359,11 +359,180 @@ n
 # ╔═╡ 3d4e1107-65dc-46db-9c49-d4997f68a684
 mostrar_estado(historia[n],programa)
 
-# ╔═╡ 7bd33d3e-c1d0-44eb-ad68-e1712db5726f
-
-
 # ╔═╡ 911e8e30-134f-4761-ad62-0ccae99de4e0
+md"""
+# Ahora vamos a por un compilador
+En un primer paso generaremos un código intermedio que es un vector de tuplas
 
+(op, num)
+
+Donde las istrucciones inicialmente son
+
+- I incrementar el valor num (puede ser negativo)
+- IP incrementar el puntero el valor num (también puede ser negativo)
+- [ num es el nivel de paréntesis 
+- ] idem
+- S salida del valor apuntado (ignoro el campo num de momento saco un byte siempre)
+- E entrada, idem con num
+
+
+La primera optimización es juntar varios incrementos en uno solo
+
+(I,num1), (I,num2)--> (I,num1+num2)
+
+"""
+
+# ╔═╡ 25f8ea02-4b74-496c-826c-270a82e122bb
+function Ir(codigo)
+IR=NamedTuple{(:comando, :num), Tuple{String, Int64}}[]
+puntero_codigo=1
+N=length(codigo)
+NivelParentesis=0
+error=""
+	while((puntero_codigo<=N)&&(error==""))
+    	comando=codigo[puntero_codigo]
+		if comando=='>'
+			push!(IR,(comando="IP",num=1))
+		elseif comando=='<'
+			push!(IR,(comando="IP",num=-1))
+		elseif comando=='+'
+			push!(IR,(comando="I",num=1))
+		elseif comando=='-'
+			push!(IR,(comando="I",num=-1))
+		elseif comando=='.'
+			push!(IR,(comando="S",num=1))
+		elseif comando==','
+			push!(IR,(comando="E",num=1))
+		elseif comando=='['
+			NivelParentesis=NivelParentesis+1
+			push!(IR, (comando="[" , num=NivelParentesis) )
+		elseif comando==']'
+			push!(IR,(comando="]",num=NivelParentesis))
+			NivelParentesis=NivelParentesis-1
+			if NivelParentesis<0
+				error=="Se cierran demasiados corchetes ] en comando $puntero_codigo"
+				break
+			end
+		else
+			#Es un comentario, no hacemos nada ;)
+		end
+		puntero_codigo=puntero_codigo+1;
+	end
+	#compruebio que los paréntesis encajan
+	if NivelParentesis>0
+		error="Faltan $NivelParentesis [ por cerrar"
+	end
+return IR,error
+end
+
+# ╔═╡ 23c2a720-3c59-451a-8e38-e1151d8253bc
+IR, err=Ir(programa)
+
+# ╔═╡ d489899f-ac4a-4338-a615-da538b600fb4
+function Optimizar_incrementos(IR)
+	IR_op=NamedTuple{(:comando, :num), Tuple{String, Int64}}[]
+	N=length(IR)
+	i=1
+	while i<=N
+		if IR[i].comando=="I"
+			incremento=IR[i].num
+			#bucle que intenta agregar todos los incrementos que pueda
+			i=i+1
+			while  IR[i].comando=="I"
+				incremento=incremento+IR[i].num
+				i=i+1
+			end
+			push!(IR_op,(comando="I",num=incremento))
+		else
+			#copio el comando sin más
+			push!(IR_op,IR[i])
+			i=i+1
+		end
+	end
+	return IR_op
+end
+		
+
+# ╔═╡ 9c411c42-3f85-4809-857e-fed9c5ff1cdd
+IR2=Optimizar_incrementos(IR)
+
+# ╔═╡ 324b3ceb-d828-45fe-9973-b1158596a369
+md"""
+# Finalmente compilo
+Compilo, evaluo la función y compruebo que funciona comparando la salilda con el intérprete
+"""
+
+# ╔═╡ 59b247d0-58ed-44d6-8a08-43466a8b0a8d
+cosa=display(UInt8(100))
+
+# ╔═╡ e2db7d7a-7c68-4436-9eed-ea775001066e
+function compilar(IR)
+	preambulo="""
+	function compilado(entrada)
+	    puntero_m=1
+	    salida = zeros(UInt8,0)
+	    memoria = zeros(UInt8,10)
+	"""
+
+	cuerpo=String[]
+	NivelIdentacion=1
+	identacion=" "^(4*NivelIdentacion)
+
+	for instrucción in IR
+		if instrucción.comando=="IP"
+			push!(cuerpo,identacion)
+		    push!(cuerpo,"puntero_m=puntero_m+($(instrucción.num))")
+		elseif instrucción.comando=="I"
+			push!(cuerpo,identacion)
+		    push!(cuerpo,"memoria[puntero_m]=mod( memoria[puntero_m] + ($(instrucción.num)) , 255 )")
+		elseif instrucción.comando=="S"
+			push!(cuerpo,identacion)
+		    push!(cuerpo,"push!(salida,memoria[puntero_m])")
+		elseif instrucción.comando=="E"
+			push!(cuerpo,identacion)
+			push!(cuerpo,"push!(salida,memoria[puntero_m])")
+			
+		elseif instrucción.comando=="["
+			push!(cuerpo,identacion)
+			push!(cuerpo, "while memoria[puntero_m]!=0")
+			NivelIdentacion=NivelIdentacion+1
+			identacion=" "^(4*NivelIdentacion)
+			
+		elseif instrucción.comando=="]"
+			push!(cuerpo,identacion)
+			NivelIdentacion=NivelIdentacion-1
+			identacion=" "^(4*NivelIdentacion)
+			push!(cuerpo, "end")
+		else
+			error("instrucción no valida: $instrucción.comando")
+		end
+		push!(cuerpo,"\n")
+	end
+
+    fin="""
+	    return salida
+	end
+	"""
+
+	codigo=preambulo*join(cuerpo)*fin
+	return codigo
+end
+
+
+# ╔═╡ 72cd72a7-5767-4e68-9b47-b85bfe4edaf1
+begin
+	codigo=compilar(IR2)
+	println(codigo)
+end
+
+# ╔═╡ 3f9728c4-b0a5-4a0c-abf5-c089c4845f8d
+begin
+	ex=Meta.parse(codigo)
+	eval(ex)
+end
+
+# ╔═╡ 5f5d1af8-de06-470d-86f5-e15a62aca696
+String(compilado(entrada))
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -671,7 +840,16 @@ version = "17.4.0+0"
 # ╟─428bbc34-c105-4387-8a9e-31488677eea2
 # ╟─e3d2ef58-69dd-4c07-8881-765992f683e3
 # ╟─4894c2fb-80b6-4728-9d9f-8ca1088ae53f
-# ╠═7bd33d3e-c1d0-44eb-ad68-e1712db5726f
-# ╠═911e8e30-134f-4761-ad62-0ccae99de4e0
+# ╟─911e8e30-134f-4761-ad62-0ccae99de4e0
+# ╟─25f8ea02-4b74-496c-826c-270a82e122bb
+# ╠═23c2a720-3c59-451a-8e38-e1151d8253bc
+# ╟─d489899f-ac4a-4338-a615-da538b600fb4
+# ╠═9c411c42-3f85-4809-857e-fed9c5ff1cdd
+# ╟─324b3ceb-d828-45fe-9973-b1158596a369
+# ╠═59b247d0-58ed-44d6-8a08-43466a8b0a8d
+# ╠═e2db7d7a-7c68-4436-9eed-ea775001066e
+# ╠═72cd72a7-5767-4e68-9b47-b85bfe4edaf1
+# ╠═3f9728c4-b0a5-4a0c-abf5-c089c4845f8d
+# ╠═5f5d1af8-de06-470d-86f5-e15a62aca696
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
