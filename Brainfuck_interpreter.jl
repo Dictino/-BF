@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.19.32
+# v0.19.36
 
 using Markdown
 using InteractiveUtils
@@ -343,7 +343,7 @@ end
 begin
 	programa=IMPRIMIR_TEXTO("Hola")
 	entrada="+++" * COPIAR(destino=1, temporal=5)
-	salida,historia,error=interprete(programa,entrada)
+	salida,historia,errores=interprete(programa,entrada)
 	salida
 end
 
@@ -384,7 +384,7 @@ La primera optimización es juntar varios incrementos en uno solo
 
 # ╔═╡ 25f8ea02-4b74-496c-826c-270a82e122bb
 function Ir(codigo)
-IR=NamedTuple{(:comando, :num), Tuple{String, Int64}}[]
+IR=NamedTuple{(:comando, :num, :cod_original), Tuple{String, Int64, String}}[]
 puntero_codigo=1
 N=length(codigo)
 NivelParentesis=0
@@ -392,22 +392,22 @@ error=""
 	while((puntero_codigo<=N)&&(error==""))
     	comando=codigo[puntero_codigo]
 		if comando=='>'
-			push!(IR,(comando="IP",num=1))
+			push!(IR, (comando="IP",num=1,cod_original=">") )
 		elseif comando=='<'
-			push!(IR,(comando="IP",num=-1))
+			push!(IR,(comando="IP",num=-1,cod_original="<"))
 		elseif comando=='+'
-			push!(IR,(comando="I",num=1))
+			push!(IR,(comando="I",num=1,cod_original="+"))
 		elseif comando=='-'
-			push!(IR,(comando="I",num=-1))
+			push!(IR,(comando="I",num=-1,cod_original="-"))
 		elseif comando=='.'
-			push!(IR,(comando="S",num=1))
+			push!(IR,(comando="S",num=1,cod_original="."))
 		elseif comando==','
-			push!(IR,(comando="E",num=1))
+			push!(IR,(comando="E",num=1,cod_original=","))
 		elseif comando=='['
 			NivelParentesis=NivelParentesis+1
-			push!(IR, (comando="[" , num=NivelParentesis) )
+			push!(IR, (comando="[" , num=NivelParentesis ,cod_original="[") )
 		elseif comando==']'
-			push!(IR,(comando="]",num=NivelParentesis))
+			push!(IR,(comando="]",num=NivelParentesis,cod_original="]"))
 			NivelParentesis=NivelParentesis-1
 			if NivelParentesis<0
 				error=="Se cierran demasiados corchetes ] en comando $puntero_codigo"
@@ -430,19 +430,22 @@ IR, err=Ir(programa)
 
 # ╔═╡ d489899f-ac4a-4338-a615-da538b600fb4
 function Optimizar_incrementos(IR)
-	IR_op=NamedTuple{(:comando, :num), Tuple{String, Int64}}[]
+	IR_op=NamedTuple{(:comando, :num, :cod_original), Tuple{String, Int64, String}}[]
 	N=length(IR)
 	i=1
 	while i<=N
 		if IR[i].comando=="I"
 			incremento=IR[i].num
+			codigo=IR[i].cod_original
 			#bucle que intenta agregar todos los incrementos que pueda
 			i=i+1
 			while  IR[i].comando=="I"
 				incremento=incremento+IR[i].num
+				codigo=codigo*IR[i].cod_original #agrego el codigo para ver la procedencia de la instruccion optimizada
+
 				i=i+1
 			end
-			push!(IR_op,(comando="I",num=incremento))
+			push!(IR_op,(comando="I",num=incremento, cod_original=codigo))
 		else
 			#copio el comando sin más
 			push!(IR_op,IR[i])
@@ -462,16 +465,14 @@ md"""
 Compilo, evaluo la función y compruebo que funciona comparando la salilda con el intérprete
 """
 
-# ╔═╡ 59b247d0-58ed-44d6-8a08-43466a8b0a8d
-cosa=display(UInt8(100))
-
 # ╔═╡ e2db7d7a-7c68-4436-9eed-ea775001066e
-function compilar(IR)
+function compilar(IR;Numero_celdas=30000)
 	preambulo="""
 	function compilado(entrada)
+	#preámbulo
 	    puntero_m=1
 	    salida = zeros(UInt8,0)
-	    memoria = zeros(UInt8,10)
+	    memoria = zeros(UInt8,$Numero_celdas)
 	"""
 
 	cuerpo=String[]
@@ -479,12 +480,23 @@ function compilar(IR)
 	identacion=" "^(4*NivelIdentacion)
 
 	for instrucción in IR
+			push!(cuerpo,identacion)
+			push!(cuerpo,"#$(instrucción.cod_original) \n")
 		if instrucción.comando=="IP"
 			push!(cuerpo,identacion)
-		    push!(cuerpo,"puntero_m=puntero_m+($(instrucción.num))")
+		    push!(cuerpo,
+				"""puntero_m=puntero_m+($(instrucción.num))
+				   if puntero_m>$Numero_celdas
+				       Base.error("Puntero demasiado grande puntero_m=\$puntero_m")
+				   end
+				   if puntero_m<1
+				       Base.error("Puntero demasiado pequeño puntero_m=\$puntero_m")
+				   end
+			    """)
 		elseif instrucción.comando=="I"
 			push!(cuerpo,identacion)
-		    push!(cuerpo,"memoria[puntero_m]=mod( memoria[puntero_m] + ($(instrucción.num)) , 255 )")
+			valor="0x"*string(mod(instrucción.num,255),base=16) #para que sea un uint8
+		    push!(cuerpo,"memoria[puntero_m]=memoria[puntero_m] + $(valor)")
 		elseif instrucción.comando=="S"
 			push!(cuerpo,identacion)
 		    push!(cuerpo,"push!(salida,memoria[puntero_m])")
@@ -549,7 +561,7 @@ PlutoUI = "~0.7.52"
 PLUTO_MANIFEST_TOML_CONTENTS = """
 # This file is machine-generated - editing it directly is not advised
 
-julia_version = "1.9.0"
+julia_version = "1.10.0"
 manifest_format = "2.0"
 project_hash = "98f4f9b67ee4d67da87eae57a18fa4e682f2e721"
 
@@ -578,7 +590,7 @@ version = "0.11.4"
 [[deps.CompilerSupportLibraries_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "e66e0078-7015-5450-92f7-15fbd957f2ae"
-version = "1.0.2+0"
+version = "1.0.5+1"
 
 [[deps.Dates]]
 deps = ["Printf"]
@@ -629,21 +641,26 @@ version = "0.21.4"
 [[deps.LibCURL]]
 deps = ["LibCURL_jll", "MozillaCACerts_jll"]
 uuid = "b27032c2-a3e7-50c8-80cd-2d36dbcbfd21"
-version = "0.6.3"
+version = "0.6.4"
 
 [[deps.LibCURL_jll]]
 deps = ["Artifacts", "LibSSH2_jll", "Libdl", "MbedTLS_jll", "Zlib_jll", "nghttp2_jll"]
 uuid = "deac9b47-8bc7-5906-a0fe-35ac56dc84c0"
-version = "7.84.0+0"
+version = "8.4.0+0"
 
 [[deps.LibGit2]]
-deps = ["Base64", "NetworkOptions", "Printf", "SHA"]
+deps = ["Base64", "LibGit2_jll", "NetworkOptions", "Printf", "SHA"]
 uuid = "76f85450-5226-5b5a-8eaa-529ad045b433"
+
+[[deps.LibGit2_jll]]
+deps = ["Artifacts", "LibSSH2_jll", "Libdl", "MbedTLS_jll"]
+uuid = "e37daf67-58a4-590a-8e99-b0245dd2ffc5"
+version = "1.6.4+0"
 
 [[deps.LibSSH2_jll]]
 deps = ["Artifacts", "Libdl", "MbedTLS_jll"]
 uuid = "29816b5a-b9ab-546f-933c-edad1886dfa8"
-version = "1.10.2+0"
+version = "1.11.0+1"
 
 [[deps.Libdl]]
 uuid = "8f399da3-3557-5675-b5ff-fb832c97cbdb"
@@ -667,14 +684,14 @@ uuid = "d6f4376e-aef5-505a-96c1-9c027394607a"
 [[deps.MbedTLS_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "c8ffd9c3-330d-5841-b78e-0817d7145fa1"
-version = "2.28.2+0"
+version = "2.28.2+1"
 
 [[deps.Mmap]]
 uuid = "a63ad114-7e13-5084-954f-fe012c677804"
 
 [[deps.MozillaCACerts_jll]]
 uuid = "14a3606d-f60d-562e-9121-12d972cd8159"
-version = "2022.10.11"
+version = "2023.1.10"
 
 [[deps.NetworkOptions]]
 uuid = "ca575930-c2e3-43a9-ace4-1e988b2c1908"
@@ -683,7 +700,7 @@ version = "1.2.0"
 [[deps.OpenBLAS_jll]]
 deps = ["Artifacts", "CompilerSupportLibraries_jll", "Libdl"]
 uuid = "4536629a-c528-5b80-bd46-f80d51c5b363"
-version = "0.3.21+4"
+version = "0.3.23+2"
 
 [[deps.Parsers]]
 deps = ["Dates", "PrecompileTools", "UUIDs"]
@@ -694,7 +711,7 @@ version = "2.7.2"
 [[deps.Pkg]]
 deps = ["Artifacts", "Dates", "Downloads", "FileWatching", "LibGit2", "Libdl", "Logging", "Markdown", "Printf", "REPL", "Random", "SHA", "Serialization", "TOML", "Tar", "UUIDs", "p7zip_jll"]
 uuid = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
-version = "1.9.0"
+version = "1.10.0"
 
 [[deps.PlutoUI]]
 deps = ["AbstractPlutoDingetjes", "Base64", "ColorTypes", "Dates", "FixedPointNumbers", "Hyperscript", "HypertextLiteral", "IOCapture", "InteractiveUtils", "JSON", "Logging", "MIMEs", "Markdown", "Random", "Reexport", "URIs", "UUIDs"]
@@ -723,7 +740,7 @@ deps = ["InteractiveUtils", "Markdown", "Sockets", "Unicode"]
 uuid = "3fa0cd96-eef1-5676-8a61-b3b8758bbffb"
 
 [[deps.Random]]
-deps = ["SHA", "Serialization"]
+deps = ["SHA"]
 uuid = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 
 [[deps.Reexport]]
@@ -744,16 +761,17 @@ uuid = "6462fe0b-24de-5631-8697-dd941f90decc"
 [[deps.SparseArrays]]
 deps = ["Libdl", "LinearAlgebra", "Random", "Serialization", "SuiteSparse_jll"]
 uuid = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
+version = "1.10.0"
 
 [[deps.Statistics]]
 deps = ["LinearAlgebra", "SparseArrays"]
 uuid = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
-version = "1.9.0"
+version = "1.10.0"
 
 [[deps.SuiteSparse_jll]]
-deps = ["Artifacts", "Libdl", "Pkg", "libblastrampoline_jll"]
+deps = ["Artifacts", "Libdl", "libblastrampoline_jll"]
 uuid = "bea87d4a-7f5b-5778-9afe-8cc45184846c"
-version = "5.10.1+6"
+version = "7.2.1+1"
 
 [[deps.TOML]]
 deps = ["Dates"]
@@ -789,22 +807,22 @@ uuid = "4ec0a83e-493e-50e2-b9ac-8f72acf5a8f5"
 [[deps.Zlib_jll]]
 deps = ["Libdl"]
 uuid = "83775a58-1f1d-513f-b197-d71354ab007a"
-version = "1.2.13+0"
+version = "1.2.13+1"
 
 [[deps.libblastrampoline_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "8e850b90-86db-534c-a0d3-1478176c7d93"
-version = "5.7.0+0"
+version = "5.8.0+1"
 
 [[deps.nghttp2_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "8e850ede-7688-5339-a07c-302acd2aaf8d"
-version = "1.48.0+0"
+version = "1.52.0+1"
 
 [[deps.p7zip_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
-version = "17.4.0+0"
+version = "17.4.0+2"
 """
 
 # ╔═╡ Cell order:
@@ -842,11 +860,10 @@ version = "17.4.0+0"
 # ╟─4894c2fb-80b6-4728-9d9f-8ca1088ae53f
 # ╟─911e8e30-134f-4761-ad62-0ccae99de4e0
 # ╟─25f8ea02-4b74-496c-826c-270a82e122bb
-# ╠═23c2a720-3c59-451a-8e38-e1151d8253bc
-# ╟─d489899f-ac4a-4338-a615-da538b600fb4
+# ╟─23c2a720-3c59-451a-8e38-e1151d8253bc
+# ╠═d489899f-ac4a-4338-a615-da538b600fb4
 # ╠═9c411c42-3f85-4809-857e-fed9c5ff1cdd
 # ╟─324b3ceb-d828-45fe-9973-b1158596a369
-# ╠═59b247d0-58ed-44d6-8a08-43466a8b0a8d
 # ╠═e2db7d7a-7c68-4436-9eed-ea775001066e
 # ╠═72cd72a7-5767-4e68-9b47-b85bfe4edaf1
 # ╠═3f9728c4-b0a5-4a0c-abf5-c089c4845f8d
