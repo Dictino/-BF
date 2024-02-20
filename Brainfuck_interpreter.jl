@@ -131,6 +131,21 @@ function WHILE(condición, acción)
 	#TO DO
 end
 
+# ╔═╡ f4e3837f-009c-444a-994c-7870e6d0b034
+function MAYOR()
+	#TO DO
+end
+
+# ╔═╡ d09831c3-6b7e-4caa-8530-4894b96c127c
+function MENOR()
+	#TO DO
+end
+
+# ╔═╡ 5abb7154-190c-4b30-be8d-df379209e17c
+function IGUAL()
+	#TO DO
+end
+
 # ╔═╡ 2d8f5354-4221-4adb-bd84-84e18d5c863c
 COMPILADOR_KATIE=
 """	
@@ -376,6 +391,7 @@ Donde las istrucciones inicialmente son
 - E entrada, idem con num
 
 
+<<<<<<< Updated upstream
 La primera optimización es juntar varios incrementos en uno solo
 
 (I,num1), (I,num2)--> (I,num1+num2)
@@ -384,6 +400,34 @@ La primera optimización es juntar varios incrementos en uno solo
 
 # ╔═╡ 25f8ea02-4b74-496c-826c-270a82e122bb
 function Ir(codigo)
+=======
+La primera optimización (optimizar incrementos) es juntar varios incrementos en uno solo +++ --> I3: 
+
+(I,num1), (I,num2)--> (I,num1+num2)
+
+Para aumentar la eficiencia hay que es añadir la instrucción de asignación
+
+- A asigna num a la posición de memoria
+
+Eso permite optimizar patrones como [-]+++ que se convertirían en (A 3)
+
+Para ello hacemos varios reemplazos/optimizaciones
+
+[-] --> (A 0)
+
+(A num1), (A num2) --> (A num2)
+
+(A num1), (I num2) --> (A num1+num2)
+
+(I num1), (A num2) --> (A num2)
+
+Y esto se aplica tantas veces como se pueda
+
+"""
+
+# ╔═╡ 25f8ea02-4b74-496c-826c-270a82e122bb
+function parsear(codigo)
+>>>>>>> Stashed changes
 IR=NamedTuple{(:comando, :num, :cod_original), Tuple{String, Int64, String}}[]
 puntero_codigo=1
 N=length(codigo)
@@ -426,7 +470,11 @@ return IR,error
 end
 
 # ╔═╡ 23c2a720-3c59-451a-8e38-e1151d8253bc
+<<<<<<< Updated upstream
 IR, err=Ir(programa)
+=======
+IR, err=parsear(programa)
+>>>>>>> Stashed changes
 
 # ╔═╡ d489899f-ac4a-4338-a615-da538b600fb4
 function Optimizar_incrementos(IR)
@@ -435,6 +483,7 @@ function Optimizar_incrementos(IR)
 	i=1
 	while i<=N
 		if IR[i].comando=="I"
+<<<<<<< Updated upstream
 			incremento=IR[i].num
 			codigo=IR[i].cod_original
 			#bucle que intenta agregar todos los incrementos que pueda
@@ -443,6 +492,14 @@ function Optimizar_incrementos(IR)
 				incremento=incremento+IR[i].num
 				codigo=codigo*IR[i].cod_original #agrego el codigo para ver la procedencia de la instruccion optimizada
 
+=======
+			incremento=0
+			codigo=""
+			#bucle que intenta agregar todos los incrementos que pueda
+			while  i<=N && IR[i].comando=="I"
+				incremento=incremento+IR[i].num
+				codigo=codigo*IR[i].cod_original #agrego el codigo para ver la procedencia de la instruccion optimizada
+>>>>>>> Stashed changes
 				i=i+1
 			end
 			push!(IR_op,(comando="I",num=incremento, cod_original=codigo))
@@ -459,6 +516,64 @@ end
 # ╔═╡ 9c411c42-3f85-4809-857e-fed9c5ff1cdd
 IR2=Optimizar_incrementos(IR)
 
+<<<<<<< Updated upstream
+=======
+# ╔═╡ 502ab22c-d624-4828-b2e6-324716e0e1e7
+function Optimizar_asignaciones(IR)
+	cambia=false
+	i=1
+	IR_op=[]
+	N=length(IR)
+	#hago una pasada
+	while i<=N
+		
+		#[-] --> (A 0)
+		if (i+2)<=N && IR[i].comando=="[" && IR[i+1].comando=="I" &&   #[-]
+		               IR[i+1].num==-1 && IR[i+2].comando=="]"  
+			
+			codigo=IR[i].cod_original*IR[i+1].cod_original*IR[i+2].cod_original
+			push!(IR_op,(comando="A",num=0, cod_original=codigo))
+			i=i+3
+			cambia=true
+			
+		#(A num1), (A num2) –> (A num2)	
+		elseif (i+1)<=N && IR[i].comando=="A" && IR[i+1].comando=="A"  
+			
+			codigo=IR[i].cod_original*IR[i+1].cod_original
+			push!(IR_op,(comando="A",num=IR[i+1].num, cod_original=codigo))
+			i=i+2
+			cambia=true
+			
+		#(A num1), (I num2) –> (A num1+num2)
+		elseif (i+1)<=N && IR[i].comando=="A" && IR[i+1].comando=="I"  
+			
+			codigo=IR[i].cod_original*IR[i+1].cod_original
+			num=IR[i].num+IR[i+1].num
+			push!(IR_op,(comando="A",num=num, cod_original=codigo))
+			i=i+2
+			cambia=true
+			
+		#(I num1), (A num2) –> (A num2)
+		elseif (i+1)<=N && IR[i].comando=="I" && IR[i+1].comando=="A"  
+			
+			codigo=IR[i].cod_original*IR[i+1].cod_original
+			push!(IR_op,(comando="A",num=IR[i+1].num, cod_original=codigo))
+			i=i+2
+			cambia=true
+
+		else
+			push!(IR_op,IR[i])
+			i=i+1
+		end
+	end
+	#si no cambia ya he acabado, si no uso recursión hasta que deje de hacerlo
+	if cambia
+        IR_op=Optimizar_asignaciones(IR_op)
+	end
+	return IR_op
+end
+
+>>>>>>> Stashed changes
 # ╔═╡ 324b3ceb-d828-45fe-9973-b1158596a369
 md"""
 # Finalmente compilo
@@ -466,10 +581,17 @@ Compilo, evaluo la función y compruebo que funciona comparando la salilda con e
 """
 
 # ╔═╡ e2db7d7a-7c68-4436-9eed-ea775001066e
+<<<<<<< Updated upstream
 function compilar(IR;Numero_celdas=30000)
 	preambulo="""
 	function compilado(entrada)
 	#preámbulo
+=======
+function generar_codigo(IR;Numero_celdas=30000)
+	preambulo="""
+	function compilado(entrada)
+	    #preámbulo
+>>>>>>> Stashed changes
 	    puntero_m=1
 	    salida = zeros(UInt8,0)
 	    memoria = zeros(UInt8,$Numero_celdas)
@@ -480,6 +602,7 @@ function compilar(IR;Numero_celdas=30000)
 	identacion=" "^(4*NivelIdentacion)
 
 	for instrucción in IR
+<<<<<<< Updated upstream
 			push!(cuerpo,identacion)
 			push!(cuerpo,"#$(instrucción.cod_original) \n")
 		if instrucción.comando=="IP"
@@ -500,6 +623,37 @@ function compilar(IR;Numero_celdas=30000)
 		elseif instrucción.comando=="S"
 			push!(cuerpo,identacion)
 		    push!(cuerpo,"push!(salida,memoria[puntero_m])")
+=======
+		    push!(cuerpo,"\n")
+			push!(cuerpo,identacion)
+			push!(cuerpo,"#$(instrucción.cod_original) \n")
+		
+		if instrucción.comando=="IP"
+			push!(cuerpo,identacion)
+		    push!(cuerpo,"puntero_m=puntero_m + ($(instrucción.num))\n")
+			push!(cuerpo,identacion)
+		    push!(cuerpo,"if puntero_m > $Numero_celdas\n")
+			push!(cuerpo,identacion)
+		    push!(cuerpo,"""    Base.error("Puntero demasiado grande puntero_m=\$puntero_m")\n""")
+			push!(cuerpo,identacion)
+			push!(cuerpo,"end\n")
+			push!(cuerpo,identacion)
+			push!(cuerpo,"if puntero_m<1\n")
+			push!(cuerpo,identacion)
+			push!(cuerpo,"""    Base.error("Puntero demasiado pequeño puntero_m=\$puntero_m")\n""")
+			push!(cuerpo,identacion)
+			push!(cuerpo,"end\n")
+			
+		elseif instrucción.comando=="I"
+			push!(cuerpo,identacion)
+			valor="0x"*string(mod(instrucción.num,256),base=16) #para que sea un uint8
+		    push!(cuerpo,"memoria[puntero_m]=memoria[puntero_m] + $(valor)")
+			
+		elseif instrucción.comando=="S"
+			push!(cuerpo,identacion)
+		    push!(cuerpo,"push!(salida,memoria[puntero_m])")
+			
+>>>>>>> Stashed changes
 		elseif instrucción.comando=="E"
 			push!(cuerpo,identacion)
 			push!(cuerpo,"push!(salida,memoria[puntero_m])")
@@ -511,10 +665,23 @@ function compilar(IR;Numero_celdas=30000)
 			identacion=" "^(4*NivelIdentacion)
 			
 		elseif instrucción.comando=="]"
+<<<<<<< Updated upstream
 			push!(cuerpo,identacion)
 			NivelIdentacion=NivelIdentacion-1
 			identacion=" "^(4*NivelIdentacion)
 			push!(cuerpo, "end")
+=======
+			NivelIdentacion=NivelIdentacion-1
+			identacion=" "^(4*NivelIdentacion)
+			push!(cuerpo,identacion)
+			push!(cuerpo, "end")
+
+		elseif instrucción.comando=="A"
+			push!(cuerpo,identacion)
+			valor="0x"*string(mod(instrucción.num,256),base=16)
+			push!(cuerpo,"memoria[puntero_m] = $valor")
+			
+>>>>>>> Stashed changes
 		else
 			error("instrucción no valida: $instrucción.comando")
 		end
@@ -533,6 +700,7 @@ end
 
 # ╔═╡ 72cd72a7-5767-4e68-9b47-b85bfe4edaf1
 begin
+<<<<<<< Updated upstream
 	codigo=compilar(IR2)
 	println(codigo)
 end
@@ -545,6 +713,42 @@ end
 
 # ╔═╡ 5f5d1af8-de06-470d-86f5-e15a62aca696
 String(compilado(entrada))
+=======
+	codigo=generar_codigo(IR2)
+	#println(codigo)
+end
+
+# ╔═╡ 452c9440-e6b4-426b-aa46-2c01c4558e04
+md"ahora todo junto"
+
+# ╔═╡ 63b418b2-6c3c-40cb-9c2c-b48ce8eb5113
+function compilar(programa)
+		IR, err=parsear(programa)
+		IR2=Optimizar_incrementos(IR)
+	    IR3=Optimizar_asignaciones(IR2)
+		codigo=generar_codigo(IR3)
+		#println(codigo)
+		ex=Meta.parse(codigo)
+		eval(ex)
+	    return IR,IR2,IR3,codigo
+end
+
+# ╔═╡ e3b4d45e-e22f-442f-a3f2-35a1db070540
+begin
+    dummie=1
+	compilar(programa)
+    #compilar("+++[-]+-+++-[-]+")
+end
+
+# ╔═╡ d06651e1-27f7-4772-86cf-b93f36f22f04
+
+
+# ╔═╡ 5f5d1af8-de06-470d-86f5-e15a62aca696
+begin
+	dummie
+	String(compilado(entrada))
+end
+>>>>>>> Stashed changes
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -843,6 +1047,9 @@ version = "17.4.0+2"
 # ╠═e220d469-4577-495d-bdfd-38b0133ced28
 # ╠═8691fa0a-8092-47eb-87aa-982b3733e4da
 # ╠═84884387-b436-45ca-ac88-81c5470a8cdd
+# ╠═f4e3837f-009c-444a-994c-7870e6d0b034
+# ╠═d09831c3-6b7e-4caa-8530-4894b96c127c
+# ╠═5abb7154-190c-4b30-be8d-df379209e17c
 # ╟─2d8f5354-4221-4adb-bd84-84e18d5c863c
 # ╟─705fe69b-8637-4b3c-ba4a-ea063c679927
 # ╠═439cc016-fab4-4003-8d73-dec4cc8b6138
@@ -860,6 +1067,7 @@ version = "17.4.0+2"
 # ╟─4894c2fb-80b6-4728-9d9f-8ca1088ae53f
 # ╟─911e8e30-134f-4761-ad62-0ccae99de4e0
 # ╟─25f8ea02-4b74-496c-826c-270a82e122bb
+<<<<<<< Updated upstream
 # ╟─23c2a720-3c59-451a-8e38-e1151d8253bc
 # ╠═d489899f-ac4a-4338-a615-da538b600fb4
 # ╠═9c411c42-3f85-4809-857e-fed9c5ff1cdd
@@ -867,6 +1075,19 @@ version = "17.4.0+2"
 # ╠═e2db7d7a-7c68-4436-9eed-ea775001066e
 # ╠═72cd72a7-5767-4e68-9b47-b85bfe4edaf1
 # ╠═3f9728c4-b0a5-4a0c-abf5-c089c4845f8d
+=======
+# ╠═23c2a720-3c59-451a-8e38-e1151d8253bc
+# ╟─d489899f-ac4a-4338-a615-da538b600fb4
+# ╠═9c411c42-3f85-4809-857e-fed9c5ff1cdd
+# ╟─502ab22c-d624-4828-b2e6-324716e0e1e7
+# ╟─324b3ceb-d828-45fe-9973-b1158596a369
+# ╟─e2db7d7a-7c68-4436-9eed-ea775001066e
+# ╠═72cd72a7-5767-4e68-9b47-b85bfe4edaf1
+# ╟─452c9440-e6b4-426b-aa46-2c01c4558e04
+# ╠═63b418b2-6c3c-40cb-9c2c-b48ce8eb5113
+# ╠═e3b4d45e-e22f-442f-a3f2-35a1db070540
+# ╠═d06651e1-27f7-4772-86cf-b93f36f22f04
+>>>>>>> Stashed changes
 # ╠═5f5d1af8-de06-470d-86f5-e15a62aca696
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
