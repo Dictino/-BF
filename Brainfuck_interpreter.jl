@@ -391,16 +391,6 @@ Donde las istrucciones inicialmente son
 - E entrada, idem con num
 
 
-<<<<<<< Updated upstream
-La primera optimización es juntar varios incrementos en uno solo
-
-(I,num1), (I,num2)--> (I,num1+num2)
-
-"""
-
-# ╔═╡ 25f8ea02-4b74-496c-826c-270a82e122bb
-function Ir(codigo)
-=======
 La primera optimización (optimizar incrementos) es juntar varios incrementos en uno solo +++ --> I3: 
 
 (I,num1), (I,num2)--> (I,num1+num2)
@@ -427,7 +417,6 @@ Y esto se aplica tantas veces como se pueda
 
 # ╔═╡ 25f8ea02-4b74-496c-826c-270a82e122bb
 function parsear(codigo)
->>>>>>> Stashed changes
 IR=NamedTuple{(:comando, :num, :cod_original), Tuple{String, Int64, String}}[]
 puntero_codigo=1
 N=length(codigo)
@@ -470,11 +459,7 @@ return IR,error
 end
 
 # ╔═╡ 23c2a720-3c59-451a-8e38-e1151d8253bc
-<<<<<<< Updated upstream
-IR, err=Ir(programa)
-=======
 IR, err=parsear(programa)
->>>>>>> Stashed changes
 
 # ╔═╡ d489899f-ac4a-4338-a615-da538b600fb4
 function Optimizar_incrementos(IR)
@@ -483,23 +468,12 @@ function Optimizar_incrementos(IR)
 	i=1
 	while i<=N
 		if IR[i].comando=="I"
-<<<<<<< Updated upstream
-			incremento=IR[i].num
-			codigo=IR[i].cod_original
-			#bucle que intenta agregar todos los incrementos que pueda
-			i=i+1
-			while  IR[i].comando=="I"
-				incremento=incremento+IR[i].num
-				codigo=codigo*IR[i].cod_original #agrego el codigo para ver la procedencia de la instruccion optimizada
-
-=======
 			incremento=0
 			codigo=""
 			#bucle que intenta agregar todos los incrementos que pueda
 			while  i<=N && IR[i].comando=="I"
 				incremento=incremento+IR[i].num
 				codigo=codigo*IR[i].cod_original #agrego el codigo para ver la procedencia de la instruccion optimizada
->>>>>>> Stashed changes
 				i=i+1
 			end
 			push!(IR_op,(comando="I",num=incremento, cod_original=codigo))
@@ -516,8 +490,6 @@ end
 # ╔═╡ 9c411c42-3f85-4809-857e-fed9c5ff1cdd
 IR2=Optimizar_incrementos(IR)
 
-<<<<<<< Updated upstream
-=======
 # ╔═╡ 502ab22c-d624-4828-b2e6-324716e0e1e7
 function Optimizar_asignaciones(IR)
 	cambia=false
@@ -573,7 +545,6 @@ function Optimizar_asignaciones(IR)
 	return IR_op
 end
 
->>>>>>> Stashed changes
 # ╔═╡ 324b3ceb-d828-45fe-9973-b1158596a369
 md"""
 # Finalmente compilo
@@ -581,17 +552,10 @@ Compilo, evaluo la función y compruebo que funciona comparando la salilda con e
 """
 
 # ╔═╡ e2db7d7a-7c68-4436-9eed-ea775001066e
-<<<<<<< Updated upstream
-function compilar(IR;Numero_celdas=30000)
-	preambulo="""
-	function compilado(entrada)
-	#preámbulo
-=======
 function generar_codigo(IR;Numero_celdas=30000)
 	preambulo="""
 	function compilado(entrada)
 	    #preámbulo
->>>>>>> Stashed changes
 	    puntero_m=1
 	    salida = zeros(UInt8,0)
 	    memoria = zeros(UInt8,$Numero_celdas)
@@ -602,28 +566,6 @@ function generar_codigo(IR;Numero_celdas=30000)
 	identacion=" "^(4*NivelIdentacion)
 
 	for instrucción in IR
-<<<<<<< Updated upstream
-			push!(cuerpo,identacion)
-			push!(cuerpo,"#$(instrucción.cod_original) \n")
-		if instrucción.comando=="IP"
-			push!(cuerpo,identacion)
-		    push!(cuerpo,
-				"""puntero_m=puntero_m+($(instrucción.num))
-				   if puntero_m>$Numero_celdas
-				       Base.error("Puntero demasiado grande puntero_m=\$puntero_m")
-				   end
-				   if puntero_m<1
-				       Base.error("Puntero demasiado pequeño puntero_m=\$puntero_m")
-				   end
-			    """)
-		elseif instrucción.comando=="I"
-			push!(cuerpo,identacion)
-			valor="0x"*string(mod(instrucción.num,255),base=16) #para que sea un uint8
-		    push!(cuerpo,"memoria[puntero_m]=memoria[puntero_m] + $(valor)")
-		elseif instrucción.comando=="S"
-			push!(cuerpo,identacion)
-		    push!(cuerpo,"push!(salida,memoria[puntero_m])")
-=======
 		    push!(cuerpo,"\n")
 			push!(cuerpo,identacion)
 			push!(cuerpo,"#$(instrucción.cod_original) \n")
@@ -653,7 +595,6 @@ function generar_codigo(IR;Numero_celdas=30000)
 			push!(cuerpo,identacion)
 		    push!(cuerpo,"push!(salida,memoria[puntero_m])")
 			
->>>>>>> Stashed changes
 		elseif instrucción.comando=="E"
 			push!(cuerpo,identacion)
 			push!(cuerpo,"push!(salida,memoria[puntero_m])")
@@ -665,12 +606,6 @@ function generar_codigo(IR;Numero_celdas=30000)
 			identacion=" "^(4*NivelIdentacion)
 			
 		elseif instrucción.comando=="]"
-<<<<<<< Updated upstream
-			push!(cuerpo,identacion)
-			NivelIdentacion=NivelIdentacion-1
-			identacion=" "^(4*NivelIdentacion)
-			push!(cuerpo, "end")
-=======
 			NivelIdentacion=NivelIdentacion-1
 			identacion=" "^(4*NivelIdentacion)
 			push!(cuerpo,identacion)
@@ -681,7 +616,6 @@ function generar_codigo(IR;Numero_celdas=30000)
 			valor="0x"*string(mod(instrucción.num,256),base=16)
 			push!(cuerpo,"memoria[puntero_m] = $valor")
 			
->>>>>>> Stashed changes
 		else
 			error("instrucción no valida: $instrucción.comando")
 		end
@@ -700,20 +634,6 @@ end
 
 # ╔═╡ 72cd72a7-5767-4e68-9b47-b85bfe4edaf1
 begin
-<<<<<<< Updated upstream
-	codigo=compilar(IR2)
-	println(codigo)
-end
-
-# ╔═╡ 3f9728c4-b0a5-4a0c-abf5-c089c4845f8d
-begin
-	ex=Meta.parse(codigo)
-	eval(ex)
-end
-
-# ╔═╡ 5f5d1af8-de06-470d-86f5-e15a62aca696
-String(compilado(entrada))
-=======
 	codigo=generar_codigo(IR2)
 	#println(codigo)
 end
@@ -748,7 +668,6 @@ begin
 	dummie
 	String(compilado(entrada))
 end
->>>>>>> Stashed changes
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -1067,15 +986,6 @@ version = "17.4.0+2"
 # ╟─4894c2fb-80b6-4728-9d9f-8ca1088ae53f
 # ╟─911e8e30-134f-4761-ad62-0ccae99de4e0
 # ╟─25f8ea02-4b74-496c-826c-270a82e122bb
-<<<<<<< Updated upstream
-# ╟─23c2a720-3c59-451a-8e38-e1151d8253bc
-# ╠═d489899f-ac4a-4338-a615-da538b600fb4
-# ╠═9c411c42-3f85-4809-857e-fed9c5ff1cdd
-# ╟─324b3ceb-d828-45fe-9973-b1158596a369
-# ╠═e2db7d7a-7c68-4436-9eed-ea775001066e
-# ╠═72cd72a7-5767-4e68-9b47-b85bfe4edaf1
-# ╠═3f9728c4-b0a5-4a0c-abf5-c089c4845f8d
-=======
 # ╠═23c2a720-3c59-451a-8e38-e1151d8253bc
 # ╟─d489899f-ac4a-4338-a615-da538b600fb4
 # ╠═9c411c42-3f85-4809-857e-fed9c5ff1cdd
@@ -1087,7 +997,6 @@ version = "17.4.0+2"
 # ╠═63b418b2-6c3c-40cb-9c2c-b48ce8eb5113
 # ╠═e3b4d45e-e22f-442f-a3f2-35a1db070540
 # ╠═d06651e1-27f7-4772-86cf-b93f36f22f04
->>>>>>> Stashed changes
 # ╠═5f5d1af8-de06-470d-86f5-e15a62aca696
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
